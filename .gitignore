@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# App-specific Temp Files
+temp_*
+*.pdf
+*.webm
+*.log
+git_push_log.txt
+
+# Large Model Files
+pretrained_models/
+*.bin
+*.pth
+*.h5
+*.onnx
+
+# Deployment
+.render/
+.railway/
+
+# Legacy Versions
+app_v1.py
+app_v2_stable.py
+downloader.py
+server.log
+server_v2.log
+git_push_log.txt
