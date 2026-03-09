@@ -7,3 +7,4 @@ fpdf2>=2.7.5
 numpy>=1.26.2
 python-dotenv>=1.0.0
 httpx<0.28.0 
+motor>=3.3.2
