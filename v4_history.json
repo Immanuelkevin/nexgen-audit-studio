@@ -1,0 +1,349 @@
+[
+  {
+    "text": "Hello, I am talking to my TV, what is your query, tell me, I will help you.",
+    "audit": {
+      "total_score": 0,
+      "criteria_breakdown": {
+        "brand_greeting": 0,
+        "solution_clarity": 0,
+        "professional_tone": 1,
+        "compliance": 2,
+        "quality_closure": 0
+      },
+      "summary": "The agent responds politely but fails to follow the brand greeting protocol. The agent is somewhat helpful but doesn't provide clarity on the solution.",
+      "sentiment": {
+        "label": "neu",
+        "score_pos": 0.3,
+        "score_neu": 0.7,
+        "score_neg": 0
+      },
+      "redacted_transcript": "Hello, I am talking to my TV, what is your query, tell me, I will help you.",
+      "risk_flags": [
+        "No mention of NexGen Solutions"
+      ],
+      "sentiment_journey": [
+        0.5,
+        0.6,
+        0.7,
+        0.5,
+        0.4,
+        0.3
+      ],
+      "transcription_confidence": 90,
+      "emotion_scores": {
+        "angry": 0.0,
+        "calm": 0.6,
+        "disgust": 0.0,
+        "fearful": 0.0,
+        "happy": 0.1,
+        "neutral": 0.7,
+        "sad": 0.0,
+        "surprised": 0.2
+      }
+    },
+    "voice_emotion": "Not Available",
+    "voice_confidence": 0,
+    "detected_language": "UNIVERSAL (ENGLISH)",
+    "detected_language_code": "English",
+    "duration": 1.89,
+    "timestamp": 1772704082.0813992
+  },
+  {
+    "text": "[REDACTED] from [REDACTED] in [REDACTED]. [Profanity and abuse redacted]",
+    "audit": {
+      "total_score": 0,
+      "criteria_breakdown": {
+        "brand_greeting": 0,
+        "solution_clarity": 0,
+        "professional_tone": 0,
+        "compliance": 0,
+        "quality_closure": 0
+      },
+      "summary": "No professional greeting or solution provided, and the tone was highly unprofessional.",
+      "sentiment": {
+        "label": "neg",
+        "score_pos": 0,
+        "score_neu": 0.2,
+        "score_neg": 0.8
+      },
+      "redacted_transcript": "[REDACTED] from [REDACTED] in [REDACTED]. [Profanity and abuse redacted]",
+      "risk_flags": [
+        "Unprofessional language",
+        "Lack of brand greeting",
+        "Failure to provide solution"
+      ],
+      "sentiment_journey": [
+        0.1,
+        0.2,
+        0.8,
+        0.9,
+        0.95,
+        0.99
+      ],
+      "transcription_confidence": 90,
+      "emotion_scores": {
+        "angry": 0.8,
+        "calm": 0.05,
+        "disgust": 0.05,
+        "fearful": 0.0,
+        "happy": 0.0,
+        "neutral": 0.1,
+        "sad": 0.0,
+        "surprised": 0.0
+      }
+    },
+    "voice_emotion": "Unknown",
+    "voice_confidence": 0,
+    "detected_language": "UNIVERSAL (ENGLISH)",
+    "detected_language_code": "English",
+    "duration": 3.6,
+    "timestamp": 1772707431.7700164
+  },
+  {
+    "text": "Hi, my name is Imman with Kevin. Good morning, I'm calling from MyTVS. So if you have any problems you can ask us immediately without any worries. We are here to help you always. Thank you for calling MyTVS mobile distributions. I hope all the best for the entertainment side.",
+    "audit": {
+      "total_score": 0,
+      "criteria_breakdown": {
+        "brand_greeting": 0,
+        "solution_clarity": 0,
+        "professional_tone": 2,
+        "compliance": 0,
+        "quality_closure": 0
+      },
+      "summary": "The agent introduced themselves and mentioned they are from MyTVS, but did not mention NexGen Solutions. The agent's tone was professional and polite.",
+      "sentiment": {
+        "label": "neu",
+        "score_pos": 0.5,
+        "score_neu": 0.5,
+        "score_neg": 0
+      },
+      "redacted_transcript": "Hi, my name is Imman with Kevin. Good morning, I'm calling from MyTVS. So if you have any problems you can ask us immediately without any worries. We are here to help you always. Thank you for calling MyTVS mobile distributions. I hope all the best for the entertainment side.",
+      "risk_flags": [
+        "Agent did not mention NexGen Solutions",
+        "Agent mentioned MyTVS instead of NexGen"
+      ],
+      "sentiment_journey": [
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "transcription_confidence": 100,
+      "emotion_scores": {
+        "angry": 0.0,
+        "calm": 0.8,
+        "disgust": 0.0,
+        "fearful": 0.0,
+        "happy": 0.2,
+        "neutral": 0.8,
+        "sad": 0.0,
+        "surprised": 0.0
+      }
+    },
+    "voice_emotion": "Unknown",
+    "voice_confidence": 0,
+    "detected_language": "UNIVERSAL (ENGLISH)",
+    "detected_language_code": "English",
+    "duration": 1.44,
+    "timestamp": 1772707494.9712925
+  },
+  {
+    "text": "Hi, how are you? I'm fine. So I'm calling from my next, do you want to know? Good morning, we're calling from [REDACTED] solutions. Yeah, bro. Oh, bro, you're a potter. You're a dumbass motherfucker. Hi, how are you, bro? What's up?",
+    "audit": {
+      "total_score": 0,
+      "criteria_breakdown": {
+        "brand_greeting": 1,
+        "solution_clarity": 0,
+        "professional_tone": 0,
+        "compliance": 0,
+        "quality_closure": 0
+      },
+      "summary": "Agent failed to maintain professionalism and used inappropriate language. The agent did partially mention the company name but not in a professional manner.",
+      "sentiment": {
+        "label": "neg",
+        "score_pos": 0.1,
+        "score_neu": 0.2,
+        "score_neg": 0.7
+      },
+      "redacted_transcript": "Hi, how are you? I'm fine. So I'm calling from my next, do you want to know? Good morning, we're calling from [REDACTED] solutions. Yeah, bro. Oh, bro, you're a potter. You're a dumbass motherfucker. Hi, how are you, bro? What's up?",
+      "risk_flags": [
+        "Unprofessional language",
+        "Inappropriate tone",
+        "Failed to follow brand guidelines"
+      ],
+      "sentiment_journey": [
+        0.2,
+        0.1,
+        0.8,
+        0.9,
+        0.7,
+        0.6,
+        0.5,
+        0.4
+      ],
+      "transcription_confidence": 90,
+      "emotion_scores": {
+        "angry": 0.7,
+        "calm": 0.1,
+        "disgust": 0.1,
+        "fearful": 0.0,
+        "happy": 0.0,
+        "neutral": 0.1,
+        "sad": 0.0,
+        "surprised": 0.0
+      }
+    },
+    "voice_emotion": "Unknown",
+    "voice_confidence": 0,
+    "detected_language": "UNIVERSAL (ENGLISH)",
+    "detected_language_code": "English",
+    "duration": 2.74,
+    "timestamp": 1772707772.3628602
+  },
+  {
+    "text": "Hey, hello, my name is Manav Kavin, I am from NYXGEN, Customer Care Solutions. I hope that you are very happy today. I am here to help you. Also, I am very glad to help you today. Please, if you have any problems, please ask me so that I can clarify also. Also, if your vehicle has any problem, please contact [REDACTED]. This is the number for us. Also, I hope that you have a good day. Thank you. If you want any place, please feel free to ask us. Thank you.",
+    "audit": {
+      "total_score": 6,
+      "criteria_breakdown": {
+        "brand_greeting": 2,
+        "solution_clarity": 0,
+        "professional_tone": 2,
+        "compliance": 0,
+        "quality_closure": 2
+      },
+      "summary": "The agent greeted the customer professionally and had a polite tone, but failed to provide a clear solution and mentioned a contact number without redacting it.",
+      "sentiment": {
+        "label": "pos",
+        "score_pos": 0.8,
+        "score_neu": 0.2,
+        "score_neg": 0.0
+      },
+      "redacted_transcript": "Hey, hello, my name is Manav Kavin, I am from NYXGEN, Customer Care Solutions. I hope that you are very happy today. I am here to help you. Also, I am very glad to help you today. Please, if you have any problems, please ask me so that I can clarify also. Also, if your vehicle has any problem, please contact [REDACTED]. This is the number for us. Also, I hope that you have a good day. Thank you. If you want any place, please feel free to ask us. Thank you.",
+      "risk_flags": [
+        "Agent mentioned contact number without redacting it",
+        "Agent failed to provide clear solution"
+      ],
+      "sentiment_journey": [
+        0.7,
+        0.8,
+        0.6,
+        0.7,
+        0.8,
+        0.9
+      ],
+      "transcription_confidence": 90,
+      "emotion_scores": {
+        "angry": 0.0,
+        "calm": 0.6,
+        "disgust": 0.0,
+        "fearful": 0.0,
+        "happy": 0.3,
+        "neutral": 0.1,
+        "sad": 0.0,
+        "surprised": 0.0
+      }
+    },
+    "voice_emotion": "Unknown",
+    "voice_confidence": 0,
+    "detected_language": "UNIVERSAL (ENGLISH)",
+    "detected_language_code": "English",
+    "duration": 1.95,
+    "timestamp": 1772707856.0451558
+  },
+  {
+    "text": "Hello, my name is [REDACTED]. I am very happy to be here.",
+    "audit": {
+      "total_score": 0,
+      "criteria_breakdown": {
+        "brand_greeting": 0,
+        "solution_clarity": 0,
+        "professional_tone": 1,
+        "compliance": 2,
+        "quality_closure": 0
+      },
+      "summary": "The agent introduced themselves but did not mention NexGen Solutions. The agent's tone is professional.",
+      "sentiment": {
+        "label": "pos",
+        "score_pos": 0.8,
+        "score_neu": 0.2,
+        "score_neg": 0
+      },
+      "redacted_transcript": "Hello, my name is [REDACTED]. I am very happy to be here.",
+      "risk_flags": [],
+      "sentiment_journey": [
+        0.8,
+        0.7,
+        0.9,
+        0.6,
+        0.8,
+        0.7
+      ],
+      "transcription_confidence": 95,
+      "emotion_scores": {
+        "angry": 0.0,
+        "calm": 0.2,
+        "disgust": 0.0,
+        "fearful": 0.0,
+        "happy": 0.8,
+        "neutral": 0.2,
+        "sad": 0.0,
+        "surprised": 0.0
+      }
+    },
+    "voice_emotion": "Unknown",
+    "voice_confidence": 0,
+    "detected_language": "UNIVERSAL (ENGLISH)",
+    "detected_language_code": "English",
+    "duration": 7.08,
+    "timestamp": 1772708247.265595
+  },
+  {
+    "text": "Hey, hello, my name is [REDACTED], I'm very happy to have you here, actually. If you have any questions, please ask us without any questions.",
+    "audit": {
+      "total_score": 1,
+      "criteria_breakdown": {
+        "brand_greeting": 0,
+        "solution_clarity": 0,
+        "professional_tone": 1,
+        "compliance": 2,
+        "quality_closure": 0
+      },
+      "summary": "The agent introduced themselves but did not mention NexGen Solutions in the greeting. The agent's tone was professional and polite.",
+      "sentiment": {
+        "label": "pos",
+        "score_pos": 0.8,
+        "score_neu": 0.2,
+        "score_neg": 0.0
+      },
+      "redacted_transcript": "Hey, hello, my name is [REDACTED], I'm very happy to have you here, actually. If you have any questions, please ask us without any questions.",
+      "risk_flags": [],
+      "sentiment_journey": [
+        0.6,
+        0.7,
+        0.8,
+        0.9,
+        0.8,
+        0.7
+      ],
+      "transcription_confidence": 95,
+      "emotion_scores": {
+        "angry": 0.0,
+        "calm": 0.7,
+        "disgust": 0.0,
+        "fearful": 0.0,
+        "happy": 0.8,
+        "neutral": 0.2,
+        "sad": 0.0,
+        "surprised": 0.0
+      }
+    },
+    "voice_emotion": "Unknown",
+    "voice_confidence": 0,
+    "detected_language": "UNIVERSAL (ENGLISH)",
+    "detected_language_code": "English",
+    "duration": 3.38,
+    "timestamp": 1772708286.2654011
+  }
+]

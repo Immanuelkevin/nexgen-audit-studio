@@ -1,0 +1,740 @@
+================================================================================
+  NEXGEN | AI CONTACT CENTER AUDIT STUDIO — VERSION 4 (v4.1 PRO)
+  Complete Technical Project Documentation
+================================================================================
+
+  File    : app_v4_main.py
+  App URL : http://localhost:8081
+  Created : March 2026
+  Author  : Developed with Antigravity AI (Google DeepMind)
+
+================================================================================
+  TABLE OF CONTENTS
+================================================================================
+  1.  Project Overview
+  2.  Problem It Solves
+  3.  Technology Stack
+  4.  Core Libraries & Their Roles
+  5.  How the App Works (Step-by-Step Flow)
+  6.  Features
+  7.  API Endpoints
+  8.  Frontend Architecture
+  9.  Backend Architecture
+  10. SpeechBrain Voice Emotion Engine
+  11. Groq AI Integration
+  12. Audit Scoring System
+  13. History & Storage
+  14. Hallucination Filter
+  15. PDF Report Generation
+  16. Multilingual Support
+  17. How to Run the App
+  18. Folder & File Structure
+  19. Known Limitations
+  20. Future Improvements
+
+================================================================================
+  1. PROJECT OVERVIEW
+================================================================================
+
+NexGen AI Contact Center Audit Studio (v4.1 PRO) is an intelligent, 
+AI-powered quality assurance platform designed for NexGen Solutions' 
+customer care operations. 
+
+The application takes voice recordings of customer care agent calls and 
+automatically evaluates them across multiple quality dimensions using 
+state-of-the-art AI. It produces structured audit results with scoring, 
+sentiment analysis, voice tone detection, risk flag identification, and 
+downloadable PDF reports.
+
+This is Version 4 — a fully independent deployment running on port 8081.
+It does not share data or code with any other version of the application.
+
+================================================================================
+  2. PROBLEM IT SOLVES
+================================================================================
+
+Traditional call center quality auditing is:
+  - Slow (human agents must manually listen to every call)
+  - Expensive (requires dedicated QA teams)
+  - Inconsistent (human bias affects scoring)
+  - Blind to voice tone (text transcripts miss sarcasm, aggression)
+  - Language limited (QA supervisors may not speak all regional dialects)
+
+NexGen Audit Studio V4 solves all of this by:
+  - Automatically transcribing any multilingual call in seconds
+  - Evaluating agent performance objectively using AI scoring
+  - Detecting voice tone (anger, sadness, happiness) using acoustic AI
+  - Supporting Tamil, Telugu, Hindi, Malayalam, Kannada, and English
+  - Generating a full audit PDF report in under 30 seconds
+  - Storing every audit in a local history database for trend analysis
+
+================================================================================
+  3. TECHNOLOGY STACK
+================================================================================
+
+  LAYER              TECHNOLOGY
+  ───────────────    ─────────────────────────────────────────────
+  Backend Runtime    Python 3.14
+  Web Framework      FastAPI (async, high performance)
+  ASGI Server        Uvicorn
+  AI - Speech        Groq Cloud API (Whisper Large V3)
+  AI - Audit/LLM     Groq Cloud API (LLaMA 3.3 70B Versatile)
+  AI - Voice Tone    SpeechBrain (IEMOCAP Wav2Vec2 EncoderClassifier)
+  Deep Learning      PyTorch + Torchaudio
+  Audio Backend      HuggingFace Transformers (v4.39.3)
+  Audio Conversion   FFmpeg (WebM → WAV format conversion)
+  PDF Generation     FPDF2
+  History Storage    Local JSON File (v4_history.json)
+  Frontend Styling   Tailwind CSS (CDN)
+  Waveform Player    WaveSurfer.js v7
+  Charts             Chart.js v4.4
+  Typography         Google Fonts — Outfit (300, 400, 500, 600, 700)
+  Compilation        Rust + Cargo (required to build tokenizers)
+  Build Tools        Microsoft Visual C++ Build Tools (MSVC)
+
+================================================================================
+  4. CORE LIBRARIES & THEIR ROLES
+================================================================================
+
+  groq
+  ----
+  Official Groq Cloud Python SDK. Used to access two models:
+    a) whisper-large-v3        → Audio transcription & translation
+    b) llama-3.3-70b-versatile → AI auditing, scoring, and analysis
+
+  fastapi
+  -------
+  The web framework that powers the entire backend API. It handles:
+    - Serving the frontend HTML page (GET /)
+    - Receiving uploaded audio files (POST /transcribe)
+    - Returning audit history data (GET /api/history)
+    - Generating PDF reports (POST /generate_pdf)
+
+  uvicorn
+  -------
+  The ASGI server that actually runs the FastAPI application.
+  V4 is configured to run on port 8081 so it can co-exist with V3.
+
+  speechbrain (EncoderClassifier)
+  --------------------------------
+  A PyTorch-based pre-trained IEMOCAP emotion recognition model.
+  Loaded directly from the local pretrained_models folder.
+  Analyzes raw audio waveforms (not text) to detect 4 emotions:
+    - neu → Neutral
+    - hap → Happy
+    - ang → Angry
+    - sad → Sad
+  Returns both a detected label and a confidence percentage.
+
+  torch / torchaudio
+  ------------------
+  PyTorch is the deep learning engine that runs SpeechBrain's
+  neural network. Torchaudio handles audio format operations.
+  A compatibility patch is applied to fix torchaudio API changes
+  in newer versions (list_audio_backends shimmed at startup).
+
+  transformers (HuggingFace — v4.39.3)
+  -------------------------------------
+  Provides the Wav2Vec2Model architecture used by SpeechBrain.
+  Must be version < 4.40.0 to retain AutoModelWithLMHead compatibility
+  which SpeechBrain's lobes depend on.
+  Requires Rust + rustc + Cargo + Microsoft MSVC Build Tools to compile
+  the tokenizers sub-package during installation.
+
+  fpdf2 (FPDF)
+  ------------
+  Generates structured PDF audit reports. Renders:
+    - Branding header
+    - Transcription text
+    - Audit scores per category
+    - Risk flags list
+    - Sentiment breakdown
+    - Summary paragraph
+
+  soundfile
+  ---------
+  Reads WAV audio files into NumPy arrays that PyTorch can process.
+  Used internally by SpeechBrain's classify_file() flow.
+
+  ffmpeg (subprocess)
+  -------------------
+  A system-level audio/video processing tool invoked via Python's
+  subprocess module. Called before SpeechBrain to convert the browser's
+  native .webm audio recording to a clean 16kHz mono .wav file that
+  SpeechBrain can process correctly.
+  Command used:
+    ffmpeg -y -i <input.webm> -ar 16000 -ac 1 <output.wav>
+
+================================================================================
+  5. HOW THE APP WORKS (STEP-BY-STEP FLOW)
+================================================================================
+
+  STEP 1 — USER INPUTS AUDIO
+  ──────────────────────────
+  The user opens http://localhost:8081 in a browser.
+  They choose one of two audio input modes:
+    a) Upload Tab:  Drag-and-drop or click to upload an audio file
+                    (Supports: MP3, WAV, M4A, WEBM, OGG, MP4)
+    b) Record Tab:  Click the red microphone button to record live
+                    audio from the browser's microphone. The browser
+                    captures audio in WebM format. A live timer is shown.
+
+  STEP 2 — USER SELECTS LANGUAGE MODE
+  ─────────────────────────────────────
+  A dropdown allows the user to choose how Whisper should process audio:
+    - AUTO (Universal, translates to English): Default mode
+    - KANNADA, TAMIL, TELUGU, HINDI, MALAYALAM: Native transcription
+
+  STEP 3 — USER CLICKS "START AI ANALYSIS"
+  ─────────────────────────────────────────
+  The frontend shows a triple-stage loading indicator:
+    [Step 1] Groq Cloud Upload
+    [Step 2] Neural Decoding
+    [Step 3] AI Quality Audit
+
+  STEP 4 — AUDIO SENT TO BACKEND
+  ─────────────────────────────────────────
+  JavaScript sends the audio file as a multipart/form-data POST
+  request to the /transcribe endpoint along with the selected language.
+
+  STEP 5 — GROQ WHISPER TRANSCRIPTION
+  ─────────────────────────────────────────
+  The backend saves the audio to a temp file and calls the Groq API:
+    - If AUTO mode: client.audio.translations.create()
+      (Returns English text from any source language)
+    - If specific language: client.audio.transcriptions.create()
+      (Returns native language text + detects language used)
+
+  A multilingual priming prompt helps Whisper recognize common contact
+  center phrases in Indian languages.
+
+  STEP 6 — HALLUCINATION FILTER
+  ─────────────────────────────────────────
+  The transcribed text is checked against a list of known Whisper
+  hallucination phrases that appear when audio is silent or too short:
+    - "thank you for watching"
+    - "service is not available. please wait for a minute."
+    - "thanks for watching", "please subscribe", etc.
+  
+  If a hallucination is detected, the transcript is replaced with
+  "Thanks." to prevent fake audit results from polluting scores.
+
+  STEP 7 — SPEECHBRAIN VOICE EMOTION DETECTION
+  ─────────────────────────────────────────
+  If SpeechBrain is loaded successfully:
+    a) FFmpeg converts the temp file to 16kHz mono WAV
+    b) SpeechBrain's classify_file() processes the acoustic waveform
+    c) Returns: voice emotion label + confidence percentage
+    d) Cleans up both temp files after use
+
+  STEP 8 — GROQ LLAMA AUDIT ENGINE
+  ─────────────────────────────────────────
+  The transcribed text is sent to LLaMA 3.3 70B with a precise system
+  prompt instructing it to act as a quality auditor. It evaluates the
+  AGENT ONLY and returns structured JSON:
+    {
+      "total_score": 0-10,
+      "criteria_breakdown": {
+        "brand_greeting": 0-2,
+        "solution_clarity": 0-2,
+        "professional_tone": 0-2,
+        "compliance": 0-2,
+        "quality_closure": 0-2
+      },
+      "summary": "2-sentence agent evaluation",
+      "sentiment": {
+        "label": "pos/neu/neg",
+        "score_pos": 0.0-1.0,
+        "score_neu": 0.0-1.0,
+        "score_neg": 0.0-1.0
+      },
+      "redacted_transcript": "original text with PII removed",
+      "risk_flags": ["list", "of", "flags"]
+    }
+
+  STEP 9 — PRIVACY REDACTION
+  ─────────────────────────────────────────
+  The LLM automatically redacts all PII (Personally Identifiable Info)
+  from the transcript before it is shown in the UI:
+    - Phone numbers
+    - Email addresses
+    - Aadhaar / ID card numbers
+    - Credit card numbers
+    - Specific physical addresses
+  Replaced with [REDACTED] tags.
+
+  STEP 10 — RESULT SAVED & RETURNED
+  ─────────────────────────────────────────
+  All results (audit data, voice emotion, transcript, language, timestamp)
+  are bundled into a JSON object, saved to v4_history.json, and returned
+  to the frontend as an HTTP response.
+
+  STEP 11 — FRONTEND DISPLAYS RESULTS
+  ─────────────────────────────────────────
+  The JavaScript unpacks the JSON and updates:
+    - Transcript panel (center) with redacted text
+    - AI Auditor Insight box with the 2-sentence summary
+    - SpeechBrain Acoustic Analysis box (voice tone + confidence bar)
+    - Quality Score gauge
+    - Criteria Breakdown progress bars (5 categories)
+    - Sentiment Bars (positive / neutral / negative)
+    - Tone Chart (Chart.js radar chart of emotion scores)
+    - Sentiment Journey Chart (line chart across the call)
+    - Risk Flags panel (red animated warning badges)
+    - Language and Engine metadata footer
+
+================================================================================
+  6. FEATURES
+================================================================================
+
+  🎙️ Dual Audio Input
+      Upload files or record live from the browser microphone.
+      Supports: MP3, WAV, M4A, WEBM, OGG, MP4.
+
+  🌐 Multilingual Transcription
+      Automatic multilingual support: Tamil, Telugu, Hindi,
+      Malayalam, Kannada, and English using Whisper Large V3.
+      AUTO mode translates all languages to English for scoring.
+
+  🧪 AI Quality Auditing
+      Groq's LLaMA 3.3 70B evaluates agent performance across
+      5 weighted criteria totaling 10 points.
+
+  🎭 SpeechBrain Voice Emotion Detection
+      Acoustic analysis of raw audio using a pre-trained IEMOCAP
+      Wav2Vec2 model. Detects: Neutral, Happy, Angry, Sad.
+      Reports confidence as a percentage.
+
+  🔐 PII Auto-Redaction
+      All sensitive customer data spoken aloud is automatically
+      identified and masked before rendering on the screen.
+
+  🚩 Risk Flag Detection
+      Automatically flags agent misbehavior:
+        - Mentioning competitors or local workshops
+        - Being unprofessional or rude
+        - Failing to mention "NexGen Solutions"
+        - Providing incorrect or uncertain information
+
+  📊 Live Dashboard Charts
+      - Radar chart: Emotion score visualization
+      - Line chart: Sentiment journey (emotional arc of the call)
+      - Progress bars: Sentiment distribution & criteria scores
+
+  📄 PDF Audit Report Download
+      One-click PDF generation of the full audit report
+      including transcript, scores, flags, and summary.
+
+  🕑 Audit History Viewer
+      A modal popup shows the last 50 audits from v4_history.json,
+      sorted by time (newest first). Shows date, language, score,
+      risk count, and overall sentiment at a glance.
+
+  🎵 Audio Waveform Playback
+      WaveSurfer.js renders an interactive playback waveform
+      for uploaded files so you can review the audio on screen.
+
+  💡 Completion Notification Sound
+      A subtle audio notification plays when the AI analysis
+      is complete to alert the user without needing to watch the screen.
+
+================================================================================
+  7. API ENDPOINTS
+================================================================================
+
+  GET  /
+  ──────
+  Returns the full frontend application as an inline HTML response.
+  All CSS, charts, waveform player, and JavaScript are included
+  in a single HTTP response (no separate static files needed).
+
+  POST /transcribe
+  ──────────────────
+  Accepts: multipart/form-data with:
+    - file: Audio file binary
+    - lang: Language code string (e.g., "auto", "ta", "en")
+
+  Returns: JSON with:
+    - text: Redacted transcript
+    - audit: Full LLM audit data (score, criteria, sentiment, flags)
+    - voice_emotion: SpeechBrain emotion label ("Happy", "Angry" etc.)
+    - voice_confidence: SpeechBrain confidence percentage (0-100)
+    - detected_language: Human-readable language string
+    - detected_language_code: ISO language code
+    - duration: Processing time in seconds
+    - timestamp: Unix timestamp of the audit
+
+  GET  /api/history
+  ──────────────────
+  Returns: JSON array of the last 50 audit records from v4_history.json.
+  Sorted by timestamp in descending order (newest first).
+
+  POST /generate_pdf
+  ──────────────────
+  Accepts: JSON body with full audit data.
+  Returns: A downloadable PDF file as binary response.
+  Filename: audit_report.pdf
+
+================================================================================
+  8. FRONTEND ARCHITECTURE
+================================================================================
+
+The frontend is a single-page application (SPA) rendered entirely
+within a Python string inside app_v4_main.py. No separate HTML files exist.
+
+  Layout (12-column responsive grid):
+    - LEFT (3 cols):  Audio input, language selector, smart controls
+    - CENTER (6 cols): Transcript output, AI insight, SpeechBrain panel
+    - RIGHT (3 cols): Dashboard (scores, criteria, sentiment, risk flags,
+                      tone chart, sentiment journey chart)
+
+  Libraries loaded via CDN at runtime:
+    - Tailwind CSS  → Utility-first styling
+    - Chart.js      → Radar chart (tone), Line chart (sentiment journey)
+    - WaveSurfer.js → Interactive waveform visualization
+    - Google Fonts  → Outfit typeface
+
+  Key JavaScript Functions:
+    - switchTab(tab)       → Toggle between Upload and Record panels
+    - toggleRecording()    → Start/stop microphone capture
+    - startProcessing()    → Send audio to /transcribe and handle response
+    - updateToneChart()    → Render radar chart from emotion_scores data
+    - updateJourneyChart() → Render line chart from sentiment_journey data
+    - updateSteps(step)    → Animate the 3-step progress indicator
+    - fetchHistory()       → Call /api/history, populate history modal table
+    - downloadPDF()        → POST to /generate_pdf, trigger browser download
+
+================================================================================
+  9. BACKEND ARCHITECTURE
+================================================================================
+
+  app_v4_main.py is a single-file FastAPI application.
+
+  Startup Sequence:
+    1. Load environment variable GROQ_API_KEY
+    2. Initialize JSON history file (v4_history.json) if missing
+    3. Apply torchaudio compatibility patch (list_audio_backends shim)
+    4. Load SpeechBrain EncoderClassifier from local pretrained_models/
+       (Sets SPEECHBRAIN_AVAILABLE = True if successful)
+    5. Create FastAPI app instance
+    6. Register route handlers (/, /transcribe, /api/history, /generate_pdf)
+    7. Start Uvicorn server on 0.0.0.0:8081
+
+  Error Handling:
+    - SpeechBrain failures are gracefully caught; system continues without it
+    - Groq API errors return HTTP 500 with error message JSON
+    - All temp audio files are deleted in the `finally` block
+    - Hallucinated transcripts are filtered before auditing
+    - MongoDB was originally planned but replaced with local JSON due to
+      credential unavailability during development
+
+  Temp File Lifecycle:
+    Step 1: Save uploaded/recorded audio as temp_<filename>
+    Step 2: FFmpeg converts to temp_<filename>.wav (16kHz mono)
+    Step 3: SpeechBrain reads temp_<filename>.wav
+    Step 4: Both files deleted after processing (finally block)
+
+================================================================================
+  10. SPEECHBRAIN VOICE EMOTION ENGINE
+================================================================================
+
+  Model Type      : EncoderClassifier (speechbrain.inference.classifiers)
+  Architecture    : Wav2Vec2 + Statistical Pooling + Output MLP
+  Training Data   : IEMOCAP (Interactive Emotional Dyadic Motion Capture)
+  Model Location  : ./pretrained_models/emotion_recognition/
+  Device          : CPU (configured via run_opts)
+  SpeechBrain Ver : 1.0+ (uses speechbrain.inference path)
+
+  Emotion Labels (IEMOCAP 4-class):
+    neu → Neutral  (calm, professional tone)
+    hap → Happy    (enthusiastic, positive)
+    ang → Angry    (frustrated, aggressive)
+    sad → Sad      (fatigued, low-energy, upset)
+
+  Processing Pipeline:
+    1. Browser records in WebM format
+    2. FFmpeg converts WebM → 16kHz mono WAV
+    3. emotion_classifier.classify_file(wav_path) called
+    4. Model returns: (probability_distribution, score, index, label)
+    5. label[0] is the predicted emotion string (e.g., "ang")
+    6. score[0].item() is the log-probability converted to Python float
+    7. label is mapped: ang→Angry, hap→Happy, sad→Sad, neu→Neutral
+    8. confidence = score[0].item() * 100 (displayed as %)
+
+  Frontend Display:
+    - Blue glassmorphism card labeled "SpeechBrain Acoustic Analysis"
+    - Large text shows the detected emotion label
+    - Angry / Sad emotions rendered in RED with neon glow
+    - Other emotions rendered in BLUE
+    - Acoustic Confidence bar fills proportionally to confidence %
+
+================================================================================
+  11. GROQ AI INTEGRATION
+================================================================================
+
+  API Key: Loaded from GROQ_API_KEY environment variable
+  Client : Groq Python SDK (groq.Groq)
+
+  MODEL 1 — Whisper Large V3 (audio transcription)
+  ─────────────────────────────────────────────────
+  Used for: Converting agent voice recordings to text
+  Called via:
+    - client.audio.translations.create()   (AUTO mode — returns English)
+    - client.audio.transcriptions.create() (language-specific mode)
+
+  Parameters:
+    model            : "whisper-large-v3"
+    prompt           : Multilingual contact center context prompt
+    temperature      : 0 (deterministic output)
+    response_format  : "verbose_json" (includes language detection)
+
+  MODEL 2 — LLaMA 3.3 70B Versatile (audit engine)
+  ──────────────────────────────────────────────────
+  Used for: Evaluating agent quality, scoring, and risk detection
+  Called via: client.chat.completions.create()
+
+  System Prompt Directives:
+    - Focus ONLY on the AGENT (ignore customer side)
+    - Return structured JSON ONLY (no prose)
+    - Redact all PII before returning transcript
+    - Identify risk flags from predefined violation list
+    - Score across 5 criteria (2 points each = 10 total)
+    - Return sentiment (pos/neu/neg) and scores for all three
+
+  response_format: {"type": "json_object"} (guaranteed JSON output)
+
+================================================================================
+  12. AUDIT SCORING SYSTEM
+================================================================================
+
+  Maximum Score: 10 points
+
+  CRITERIA             WEIGHT    DESCRIPTION
+  ──────────────────   ──────    ─────────────────────────────────────────────
+  Brand Greeting          2      Did the agent professionally mention
+                                 "NexGen Solutions" at call start?
+  
+  Solution Clarity        2      Did the agent provide a clear, logical
+                                 answer/solution to the customer's query?
+  
+  Professional Tone       2      Did the agent show empathy, patience,
+                                 and use polite, professional language?
+  
+  Compliance              2      Did the agent avoid mentioning competitors,
+                                 local workshops, or unprofessional remarks?
+  
+  Quality Closure         2      Did the agent provide a proper sign-off
+                                 and communicate clear next steps?
+
+  Risk Flags (non-scoring, alert-only):
+    - Competitor mention
+    - Professionalism failure (rude, impatient)
+    - Missing brand identity ("NexGen Solutions" not mentioned)
+    - Incorrect or uncertain information ("I don't know", "Maybe")
+
+================================================================================
+  13. HISTORY & STORAGE
+================================================================================
+
+  Storage Type  : Local JSON flat-file database
+  File Name     : v4_history.json
+  File Location : Same directory as app_v4_main.py
+  Max Records   : Last 50 fetched per request (no hard cap on file)
+
+  Each record stored:
+    {
+      "text":                  "(redacted transcript)",
+      "audit":                 { full audit JSON from LLM },
+      "voice_emotion":         "Happy" | "Angry" | "Sad" | "Neutral",
+      "voice_confidence":      (float 0.0 - 100.0),
+      "detected_language":     "UNIVERSAL (ENGLISH)",
+      "detected_language_code": "en",
+      "duration":              (seconds),
+      "timestamp":             (Unix epoch float)
+    }
+
+  Auto-created on first launch if the file does not already exist.
+
+  History Modal Columns:
+    - Date / Time (formatted to user's local timezone via JS)
+    - Language (detected language label)
+    - Score (audit.total_score out of 10)
+    - Risk (number of flags, or "Safe" badge)
+    - Sentiment (pos / neu / neg label)
+
+================================================================================
+  14. HALLUCINATION FILTER
+================================================================================
+
+  Whisper sometimes outputs nonsensical or generic media phrases instead
+  of real transcription content when audio is too short, silent, or corrupted.
+
+  The following patterns are checked (case-insensitive, full-line match):
+    - "thank you for watching"
+    - "thanks for watching"
+    - "please subscribe"
+    - "like and subscribe"
+    - "don't forget to subscribe"
+    - "see you in the next video"
+    - "see you next time"
+    - "subtitles by"
+    - "transcribed by"
+    - "service is not available. please wait for a minute."
+
+  If matched, the transcript is replaced with "Thanks." before auditing.
+  This prevents the LLM from generating incorrect poor agent evaluations
+  on ghost inputs.
+
+================================================================================
+  15. PDF REPORT GENERATION
+================================================================================
+
+  Library : fpdf2 (FPDF class)
+  Endpoint: POST /generate_pdf
+  Output  : Binary PDF file download named "audit_report.pdf"
+
+  Page Layout:
+    1. Title: "NexGen Customer Care Audit Report"
+    2. Generated timestamp
+    3. Agent Audit Summary (summary text from LLM)
+    4. Quality Score: X / 10
+    5. Criteria Breakdown (all 5 categories with individual scores)
+    6. Risk Flags list (or "No Risk Flags Detected")
+    7. Sentiment Analysis (label + percentage breakdown)
+    8. Full Transcript (with PII already redacted)
+
+================================================================================
+  16. MULTILINGUAL SUPPORT
+================================================================================
+
+  Mode         Code    How It Works
+  ──────────   ─────   ────────────────────────────────────────────────────────
+  AUTO         auto    Whisper translates everything to English.
+                       Best for multilingual teams. All scoring in English.
+  
+  Tamil        ta      Whisper transcribes in native Tamil script.
+                       LLM audits in Tamil context.
+
+  Telugu       te      Whisper transcribes in native Telugu script.
+
+  Hindi        hi      Whisper transcribes in native Hindi (Devanagari).
+
+  Malayalam    ml      Whisper transcribes in native Malayalam script.
+
+  Kannada      kn      Whisper transcribes in native Kannada script.
+
+  A multilingual context prompt is sent with every Whisper request to help
+  it recognize Indian contact-center specific terminology and avoid
+  defaulting to non-relevant languages for short clips.
+
+================================================================================
+  17. HOW TO RUN THE APP
+================================================================================
+
+  Prerequisites:
+    - Python 3.14 installed
+    - FFmpeg available in system PATH
+    - Rust + Cargo + MSVC Build Tools (for tokenizers compilation)
+    - All Python packages installed (see below)
+    - SpeechBrain model folder present at:
+        ./pretrained_models/emotion_recognition/
+
+  Install Dependencies:
+    pip install fastapi uvicorn groq fpdf2 speechbrain torch torchaudio
+    pip install soundfile "transformers<4.40.0"
+
+  Set API Key & Run:
+    Windows PowerShell:
+      $env:GROQ_API_KEY="your_api_key_here"
+      python app_v4_main.py
+
+  Access the App:
+    Open: http://localhost:8081
+
+================================================================================
+  18. FOLDER & FILE STRUCTURE
+================================================================================
+
+  d:\voice_emotion_project_v3\transcripting_module\
+  │
+  ├── app_v4_main.py               ← Main application (ALL code in 1 file)
+  ├── v4_history.json              ← Auto-created audit history database
+  ├── PROJECT_DOCUMENTATION_V4.txt ← This file
+  │
+  └── pretrained_models\
+      ├── emotion_recognition\     ← SpeechBrain IEMOCAP model weights
+      │   ├── hyperparams.yaml
+      │   ├── classifier.ckpt
+      │   └── normalizer.ckpt
+      └── wav2vec2-base\           ← HuggingFace Wav2Vec2 base model
+
+================================================================================
+  19. KNOWN LIMITATIONS
+================================================================================
+
+  1. SPEECHBRAIN CONFIDENCE VALUES
+     SpeechBrain returns log-probabilities, not percentage values.
+     Displayed confidence numbers may not be perfectly linear.
+     Negative confidence values (from log-probs) will display as 0%.
+
+  2. SHORT AUDIO CLIPS
+     Clips shorter than 2 seconds may trigger Whisper hallucinations
+     or cause SpeechBrain to return low-confidence results.
+     Always use 3+ second recordings for best accuracy.
+
+  3. BACKGROUND NOISE
+     Heavy background noise can confuse both Whisper (transcription errors)
+     and SpeechBrain (false emotion readings). Use headphones/boom mic.
+
+  4. HISTORY IS LOCAL
+     v4_history.json is stored locally. If the file is deleted, all
+     audit history is permanently lost. No cloud backup exists in V4.
+
+  5. SINGLE USER
+     The app is not designed for concurrent multi-user access.
+     It uses temp files with a fixed naming pattern that will clash
+     if two users upload simultaneously.
+
+  6. LLM HALLUCINATIONS
+     The LLaMA 3.3 70B model may occasionally produce inaccurate scores
+     or miss risk flags, especially for very short transcripts.
+
+  7. CPU-ONLY INFERENCE
+     SpeechBrain runs on CPU in V4. This is slower than GPU inference.
+     A 10-second clip takes approximately 3-8 seconds to analyze.
+
+================================================================================
+  20. FUTURE IMPROVEMENTS
+================================================================================
+
+  1. MongoDB Atlas Integration
+     Restore cloud database storage once credentials are confirmed.
+     Use motor (async MongoDB driver) for non-blocking operations.
+
+  2. GPU Acceleration
+     Set run_opts={"device": "cuda"} for SpeechBrain if a GPU is available.
+     This would reduce voice emotion analysis from 5 seconds to <1 second.
+
+  3. Real-Time Streaming
+     Implement WebSocket-based streaming so transcription starts before
+     the recording is even finished.
+
+  4. Batch Upload Mode
+     Allow uploading multiple files at once for overnight QA processing.
+
+  5. Agent Performance Reports
+     Track and visualize score trends per agent over time.
+
+  6. Multi-User Authentication
+     Add login/logout with role-based access (admin vs. auditor).
+
+  7. Custom Scoring Templates
+     Allow supervisors to edit the audit criteria and weightings.
+
+  8. Voice Diarization
+     Separate the agent voice from the customer voice in full-call recordings
+     and only analyze the agent side automatically.
+
+================================================================================
+  END OF DOCUMENTATION — NexGen Audit Studio V4.1 PRO
+================================================================================

@@ -6,18 +6,22 @@ import json
 import sys
 import io
 
-# Force UTF-8 for Windows console to prevent 'charmap' encoding errors with multilingual text
 if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-# import torch
-# import torchaudio
+import torch
+import torchaudio
+
+# Bypass for SpeechBrain error on newer torchaudio versions
+if getattr(torchaudio, "list_audio_backends", None) is None:
+    torchaudio.list_audio_backends = lambda: ["soundfile"]
+
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from groq import Groq
 from fpdf import FPDF
-# from speechbrain.inference.classifiers import EncoderClassifier
+from speechbrain.inference.classifiers import EncoderClassifier
 
 # Disable symlinks for Windows compatibility
 os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
@@ -31,40 +35,41 @@ if not GROQ_API_KEY:
 
 client = Groq(api_key=GROQ_API_KEY)
 
-# MongoDB Atlas Configuration for V3/V4 Centralization
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://immanuelkevin55_db_user:Imman123@cluster0.ylcv4kw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+# MongoDB Atlas Configuration for V4
+# password has been changed to Imman123
+MONGO_URI = "mongodb+srv://immanuelkevin55_db_user:Imman123@cluster0.ylcv4kw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 DB_NAME = "nexgen_audit_db"
-COLLECTION_NAME = "audit_history_v3"
+COLLECTION_NAME = "audit_history_v4"
 
 import motor.motor_asyncio
 try:
     mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
     db = mongo_client[DB_NAME]
     collection = db[COLLECTION_NAME]
-    print("[OK] MongoDB Connection Loaded!")
+    print("[OK] MongoDB Connection Initialized!")
 except Exception as e:
     print(f"[ERROR] MongoDB Connection Failed: {e}")
 
-# Local JSON Database Configuration (Fallback)
-HISTORY_FILE = "v3_history.json"
+# Local JSON Database Configuration for V4 (Fallback/Local Mirror)
+HISTORY_FILE = "v4_history.json"
+
 if not os.path.exists(HISTORY_FILE):
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump([], f)
 
 # Initialize SpeechBrain Emotion Classifier
-print("SpeechBrain integration disabled - using text-based sentiment only")
-SPEECHBRAIN_AVAILABLE = False
-# try:
-#     emotion_classifier = EncoderClassifier.from_hparams(
-#         source="d:/voice_emotion_project_v3/transcripting_module/pretrained_models/emotion_recognition",
-#         run_opts={"device": "cpu"}
-#     )
-#     print("[OK] SpeechBrain Model Loaded Successfully!")
-#     SPEECHBRAIN_AVAILABLE = True
-# except Exception as e:
-#     print(f"[WARNING] SpeechBrain Model Loading Failed: {str(e)}")
-#     print("[WARNING] Continuing without voice emotion detection...")
-#     SPEECHBRAIN_AVAILABLE = False
+try:
+    print("Loading SpeechBrain Emotion Model ...")
+    emotion_classifier = EncoderClassifier.from_hparams(
+        source="d:/voice_emotion_project_v3/transcripting_module/pretrained_models/emotion_recognition",
+        run_opts={"device": "cpu"}
+    )
+    print("[OK] SpeechBrain Model Loaded Successfully!")
+    SPEECHBRAIN_AVAILABLE = True
+except Exception as e:
+    print(f"[WARNING] SpeechBrain Model Loading Failed: {str(e)}")
+    print("[WARNING] Continuing without voice emotion detection...")
+    SPEECHBRAIN_AVAILABLE = False
 
 app = FastAPI()
 
@@ -348,7 +353,94 @@ async def home():
     </div>
 </div>
 
+<!-- History Modal -->
+<div id="historyModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4">
+    <div class="glass-panel w-full max-w-4xl max-h-[80vh] flex flex-col bg-slate-800 border-slate-600">
+        <div class="flex justify-between items-center p-6 border-b border-white/10">
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">📊 Audit History Database</h2>
+            <button onclick="document.getElementById('historyModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-2xl font-bold">&times;</button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1">
+            <table class="w-full text-left text-sm text-slate-300">
+                <thead class="text-xs uppercase bg-white/5 text-slate-400">
+                    <tr>
+                        <th class="px-4 py-3 rounded-tl-lg">Date/Time</th>
+                        <th class="px-4 py-3">Language</th>
+                        <th class="px-4 py-3 text-center">Score</th>
+                        <th class="px-4 py-3">Risk</th>
+                        <th class="px-4 py-3 rounded-tr-lg">Sentiment</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                    <tr><td colspan="5" class="px-4 py-6 text-center italic text-slate-500">Loading history...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <script>
+    async function fetchHistory() {
+        const modal = document.getElementById('historyModal');
+        const tbody = document.getElementById('historyTableBody');
+        modal.classList.remove('hidden');
+        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-6 text-center italic text-slate-500">Loading history...</td></tr>';
+        
+        try {
+            const resp = await fetch('/api/history');
+            const data = await resp.json();
+            
+            if (!resp.ok || data.error) {
+                throw new Error(data.error || `HTTP ${resp.status}`);
+            }
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-6 text-center italic text-slate-500">No records found.</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = data.map(item => {
+                const date = new Date(item.timestamp * 1000).toLocaleString();
+                const score = item.audit ? item.audit.total_score : '--';
+                const risks = item.audit && item.audit.risk_flags && item.audit.risk_flags.length > 0 
+                                ? `<span class="text-rose-400 font-bold">${item.audit.risk_flags.length} Flags</span>` 
+                                : `<span class="text-emerald-400">Safe</span>`;
+                const sent = item.audit && item.audit.sentiment ? item.audit.sentiment.label.toUpperCase() : '--';
+                
+                return `<tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                    <td class="px-4 py-3">${date}</td>
+                    <td class="px-4 py-3">${item.detected_language || 'UNKNOWN'}</td>
+                    <td class="px-4 py-3 font-bold text-center text-lg text-emerald-300">${score}<span class="text-xs text-slate-500">/10</span></td>
+                    <td class="px-4 py-3">${risks}</td>
+                    <td class="px-4 py-3 text-xs tracking-wider">${sent}</td>
+                </tr>`;
+            }).join('');
+        } catch (e) {
+            tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-red-500">Error: ${e.message}</td></tr>`;
+        }
+    }
+
+    async function syncToCloud() {
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '⌛ Syncing...';
+        btn.disabled = true;
+        try {
+            const resp = await fetch('/api/sync_to_mongo');
+            const data = await resp.json();
+            if (resp.ok) {
+                alert(data.message);
+            } else {
+                alert('Sync Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (e) {
+            alert('Network Error: ' + e.message);
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+
     // ── Chart Setup ──────────────────────────────────────────────────────────
     const EMOTION_LABELS = ['angry','calm','disgust','fearful','happy','neutral','sad','surprised'];
     const EMOTION_COLORS_BG = [
@@ -677,6 +769,26 @@ async def home():
                             <span>Language: ${langDisplay}</span>
                             <span>Engine: Llama-3.3-70B</span>
                         </div>
+                    </div>
+                    
+                    <div class="p-8 bg-black/40 rounded-[32px] border border-blue-500/20 mt-6 shadow-[0_0_20px_rgba(59,130,246,0.15)] relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent"></div>
+                        <h3 class="text-blue-400 font-bold mb-4 flex items-center gap-3 relative z-10 text-[10px] uppercase tracking-[0.2em]">
+                            <span class="text-xl animate-pulse">🎙️</span> SpeechBrain Acoustic Analysis
+                        </h3>
+                        <div class="flex justify-between items-center relative z-10">
+                            <span class="text-slate-300 font-light tracking-wider uppercase text-sm">Detected Voice Tone:</span>
+                            <span class="text-3xl font-black ${data.voice_emotion && (data.voice_emotion.toLowerCase() === 'angry' || data.voice_emotion.toLowerCase() === 'sad') ? 'text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)]' }">${data.voice_emotion || 'Unknown'}</span>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-white/5 relative z-10">
+                            <div class="flex justify-between text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2">
+                                <span>Acoustic Confidence</span>
+                                <span>${data.voice_confidence ? Math.round(data.voice_confidence) : 0}%</span>
+                            </div>
+                            <div class="h-1 bg-white/5 rounded-full overflow-hidden">
+                                <div class="h-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-all" style="width:${data.voice_confidence || 0}%"></div>
+                            </div>
+                        </div>
                     </div>`;
 
                     document.getElementById('qualityScore').innerText = data.audit.total_score;
@@ -796,6 +908,7 @@ async def transcribe(file: UploadFile = File(...), lang: str = Form("auto")):
             "see you next time",
             "subtitles by",
             "transcribed by",
+            "service is not available. please wait for a minute."
         ]
         lower_text = transcribed_text.strip().lower()
         for pattern in HALLUCINATION_PATTERNS:
@@ -812,36 +925,21 @@ async def transcribe(file: UploadFile = File(...), lang: str = Form("auto")):
             try:
                 import soundfile as sf
                 import numpy as np
+                import subprocess
                 
-                # Load audio file
-                audio_data, sample_rate = sf.read(temp_filename)
+                # Convert the incoming audio (usually WebM from browser) to 16kHz WAV format required by SpeechBrain
+                wav_filename = temp_filename + ".wav"
+                subprocess.run([
+                    "ffmpeg", "-y", "-i", temp_filename, 
+                    "-ar", "16000", "-ac", "1", wav_filename
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                # Run SpeechBrain native classifier directly on the WAV file
+                out_prob, score, index, text_lab = emotion_classifier.classify_file(wav_filename)
                 
-                # Convert to tensor and add batch dimension
-                audio_tensor = torch.tensor(audio_data).unsqueeze(0).float()
+                # Extract predictions
+                detected_emotion = text_lab[0]
+                confidence = score[0].item()
                 
-                # Get the wav2vec2 encoder and other components from the classifier
-                wav2vec2 = emotion_classifier.mods.wav2vec2
-                avg_pool = emotion_classifier.mods.avg_pool
-                output_mlp = emotion_classifier.mods.output_mlp
-                
-                # Process through the model
-                with torch.no_grad():
-                    # Extract features with wav2vec2
-                    feats = wav2vec2(audio_tensor)
-                    # Pool the features
-                    pooled = avg_pool(feats)
-                    # Get logits
-                    logits = output_mlp(pooled)
-                    # Apply softmax
-                    probs = torch.nn.functional.softmax(logits, dim=-1)
-                
-                # Get prediction
-                pred_index = torch.argmax(probs, dim=-1).item()
-                confidence = probs[0, pred_index].item()
-                
-                # Map index to emotion label
-                emotion_labels = ['neu', 'hap', 'ang', 'sad']  # IEMOCAP labels
-                detected_emotion = emotion_labels[pred_index]
                 
                 # Map to readable labels
                 emotion_map = {
@@ -944,25 +1042,27 @@ async def transcribe(file: UploadFile = File(...), lang: str = Form("auto")):
             "detected_language": lang_display,
             "detected_language_code": detected_lang_code,
             "duration": round(time.time() - start_time, 2),
-            "timestamp": time.time()
+            "timestamp": time.time()  # Useful for database sorting
         }
 
         # 3. Save to History (Local & MongoDB)
         try:
             db_record = result_data.copy()
-            # A. Local Fallback
-            if os.path.exists(HISTORY_FILE):
-                with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-                    history_data = json.load(f)
-                history_data.append(db_record)
-                with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-                    json.dump(history_data, f, ensure_ascii=False, indent=2)
             
-            # B. MongoDB Cloud Sync
+            # A. Save to Local JSON History V4 File
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                history_data = json.load(f)
+            history_data.append(db_record)
+            with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+                json.dump(history_data, f, ensure_ascii=False, indent=2)
+            print("-> Successfully saved audit to local V4 history.")
+            
+            # B. Save to MongoDB Atlas
             await collection.insert_one(db_record)
-            print("-> Audit synced to MongoDB Atlas.")
+            print("-> Successfully synced audit to MongoDB Atlas.")
+
         except Exception as e:
-            print(f"-> History sync failed: {str(e)}")
+            print(f"-> Failed to save to history: {e}")
 
         return JSONResponse(result_data)
 
@@ -970,49 +1070,53 @@ async def transcribe(file: UploadFile = File(...), lang: str = Form("auto")):
         return JSONResponse({"error": str(e)}, status_code=500)
     finally:
         if os.path.exists(temp_filename): os.remove(temp_filename)
+        if os.path.exists(temp_filename + ".wav"): os.remove(temp_filename + ".wav")
 
 @app.get("/api/history")
 async def get_history():
     try:
-        # Try fetching from MongoDB first
+        # Try fetching from MongoDB first for most recent data across instances
         try:
             cursor = collection.find().sort("timestamp", -1).limit(50)
             audits = await cursor.to_list(length=50)
             if audits:
+                # Remove MongoDB _id for JSON serialization
                 for a in audits: a.pop("_id", None)
                 return JSONResponse(audits)
-        except:
-            pass
+        except Exception as mongo_err:
+            print(f"-> MongoDB Fetch Failed, falling back to local JSON: {mongo_err}")
 
-        # Fallback to local
-        if os.path.exists(HISTORY_FILE):
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-                audits = json.load(f)
-            audits.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
-            return JSONResponse(audits[:50])
-        return JSONResponse([])
+        # Fallback to local JSON
+        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            audits = json.load(f)
+        audits.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
+        return JSONResponse(audits[:50])
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @app.get("/api/sync_to_mongo")
 async def sync_to_mongo():
+    """Manual trigger to sync local JSON history to MongoDB Atlas."""
     try:
-        if not os.path.exists(HISTORY_FILE): return JSONResponse({"message": "No local history."})
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
             local_history = json.load(f)
         
-        # Avoid duplicates by checking timestamps
-        existing = await collection.distinct("timestamp")
-        to_insert = [r for r in local_history if r.get("timestamp") not in existing]
+        if not local_history:
+            return JSONResponse({"message": "No local history to sync."})
+
+        # Get existing timestamps in MongoDB to avoid duplicates
+        existing_timestamps = await collection.distinct("timestamp")
+        
+        to_insert = [rec for rec in local_history if rec.get("timestamp") not in existing_timestamps]
         
         if to_insert:
             await collection.insert_many(to_insert)
-            return JSONResponse({"message": f"Successfully synced {len(to_insert)} records."})
-        return JSONResponse({"message": "Cloud is already up to date."})
+            return JSONResponse({"message": f"Successfully synced {len(to_insert)} records to MongoDB Atlas."})
+        else:
+            return JSONResponse({"message": "All local records are already in MongoDB."})
+            
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
-        if os.path.exists(temp_filename): os.remove(temp_filename)
-
 
 @app.post("/generate_pdf")
 async def generate_pdf(data: dict):
@@ -1109,4 +1213,4 @@ async def generate_pdf(data: dict):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8081)
